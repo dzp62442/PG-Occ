@@ -18,6 +18,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+data
+.gitignore
+ckpt
 
 # PyTorch
 *.pth
@@ -73,4 +76,5 @@ lib/pointops/build/
 *.npz
 *.pkl
 *.pth.tar
+
 
