@@ -84,6 +84,8 @@ cd ../../
 
 ## 🚀 Training & Evaluation
 
+> 下载 GaussTR 的 [text_proto_embeds_clip.pth](https://github.com/hustvl/GaussTR/releases/download/v1.0/text_proto_embeds_clip.pth) 和 SuperOcc 的 [cascade_mask_rcnn_r50_fpn_coco-20e_20e_nuim_20201009_124951-40963960.pth](https://huggingface.co/yzzzzc/SuperOcc/blob/main/cascade_mask_rcnn_r50_fpn_coco-20e_20e_nuim_20201009_124951-40963960.pth) 并存到 ckpt/ 目录下。
+
 Train PG-Occ with multi GPUs:
 ```bash
 bash scripts/train.sh [num_gpus] [resume_from]
