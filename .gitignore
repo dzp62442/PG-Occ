@@ -76,5 +76,5 @@ lib/pointops/build/
 *.npz
 *.pkl
 *.pth.tar
-
-
+.codex
+outputs

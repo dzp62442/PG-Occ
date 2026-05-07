@@ -98,7 +98,7 @@ class LoadMultiViewImageFromMultiSweeps(object):
 
         try:
             mmcv.use_backend('turbojpeg')
-        except ImportError:
+        except (ImportError, RuntimeError, OSError):
             mmcv.use_backend('cv2')
 
     def load_offline(self, results):

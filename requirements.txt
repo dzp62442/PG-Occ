@@ -1,7 +1,5 @@
-# PyTorch (CUDA 12.1)
-torch==2.1.0 --index-url https://download.pytorch.org/whl/cu121
-torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
-torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
+# PyTorch
+torch==2.0.0+cu118
 
 # Core dependencies
 openmim
@@ -54,5 +52,5 @@ ipdb
 pytest
 
 # Optional for faster data loading
-# pyturbojpeg  # Requires: sudo apt-get install -y libturbojpeg
+# pyturbojpeg<2  # Requires: sudo apt-get install -y libturbojpeg
 # pillow-simd==9.0.0.post1  # Uninstall pillow first: pip uninstall pillow

@@ -40,6 +40,7 @@ Create conda environment:
 ```bash
 conda create -n pgocc python=3.8
 conda activate pgocc
+pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118
 pip install -r requirements.txt
 ```
 
@@ -48,7 +49,7 @@ Install turbojpeg and pillow-simd to speed up data loading (optional but importa
 ```bash
 sudo apt-get update
 sudo apt-get install -y libturbojpeg
-pip install pyturbojpeg
+pip install "pyturbojpeg<2"
 ```
 
 Install other dependencies:
@@ -60,8 +61,6 @@ mim install mmcv-full==1.6.0
 mim install mmdet==2.28.2
 mim install mmsegmentation==0.30.0
 mim install mmdet3d==1.0.0rc6
-pip install setuptools==59.5.0
-pip install numpy==1.23.5
 ```
 
 Compile CUDA extensions:
@@ -123,4 +122,3 @@ If you find PG-Occ helpful to your research, please cite our paper:
 ## 🙏 Acknowledgements
 
 Many thanks to these excellent open-source projects: [SparseBEV](https://github.com/MCG-NJU/SparseBEV), [GaussTR](https://github.com/hustvl/GaussTR), [gsplat](https://github.com/nerfstudio-project/gsplat), [LangOcc](https://github.com/boschresearch/LangOcc), [3D Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting), [GaussianFormer](https://github.com/huang-yh/GaussianFormer), [GaussianOcc](https://github.com/GANWANSHUI/GaussianOcc), [4D-Occ](https://github.com/tarashakhurana/4d-occ-forecasting), and [MMDetection3D](https://github.com/open-mmlab/mmdetection3d).
-
