@@ -168,8 +168,12 @@ class PGOcc(MVXTwoStageDetector):
             occ_preds = None
 
         gau_preds = output['gau_preds']
+        sample_idx = img_metas[0].get('sample_idx') if img_metas else None
+        token = img_metas[0].get('token', sample_idx) if img_metas else sample_idx
         if self.return_depth:
             return [{
+                'sample_idx': sample_idx,
+                'token': token,
                 'gau_preds': gau_preds[-1:] if self.return_gaussians else None,
                 'occ_preds': occ_preds[b:b+1] if occ_preds is not None else None,
                 'depth_error': depth_error if 'depth' in self.metric else None,
@@ -177,6 +181,8 @@ class PGOcc(MVXTwoStageDetector):
             } for b in range(batch_size)]
         else:
             return [{
+                'sample_idx': sample_idx,
+                'token': token,
                 'gau_preds': gau_preds[-1:] if self.return_gaussians else None,
                 'occ_preds': occ_preds[b:b+1] if occ_preds is not None else None,
                 'depth_error': depth_error if 'depth' in self.metric else None,
@@ -226,12 +232,16 @@ class PGOcc(MVXTwoStageDetector):
                 except:
                     pass
 
-            if img_filenames[img_indices[0]] in self.memory:
-                img_feats_curr = self.memory[img_filenames[img_indices[0]]]
+            cache_key = img_filenames[img_indices[0]]
+            if img_metas[0].get('chunk_sample_idx') is not None:
+                cache_key = f"chunk:{img_metas[0].get('chunk_sample_idx')}:{cache_key}"
+
+            if cache_key in self.memory:
+                img_feats_curr = self.memory[cache_key]
             else:
                 img_feats_curr = self.extract_feat(img[:, i], img_metas_curr)
-                self.memory[img_filenames[img_indices[0]]] = img_feats_curr
-                self.queue.put(img_filenames[img_indices[0]])
+                self.memory[cache_key] = img_feats_curr
+                self.queue.put(cache_key)
                 while self.queue.qsize() > 16:
                     pop_key = self.queue.get()
                     self.memory.pop(pop_key)

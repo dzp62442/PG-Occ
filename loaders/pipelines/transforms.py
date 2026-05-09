@@ -222,7 +222,7 @@ class RandomTransformImage(object):
         self.training = training
 
     def __call__(self, results):
-        resize, resize_dims, crop, flip, rotate = self.sample_augmentation()
+        resize, resize_dims, crop, flip, rotate = self.sample_augmentation(results)
 
         if len(results['lidar2img']) == len(results['img']):
             for i in range(len(results['img'])):
@@ -310,11 +310,14 @@ class RandomTransformImage(object):
 
         return img, ida_mat.numpy()
 
-    def sample_augmentation(self):
+    def sample_augmentation(self, results=None):
         """
         https://github.com/Megvii-BaseDetection/BEVStereo/blob/master/dataset/nusc_mv_det_dataset.py#L247
         """
-        H, W = self.ida_aug_conf['H'], self.ida_aug_conf['W']
+        if self.ida_aug_conf.get('use_actual_shape', False) and results is not None:
+            H, W = results['img'][0].shape[:2]
+        else:
+            H, W = self.ida_aug_conf['H'], self.ida_aug_conf['W']
         fH, fW = self.ida_aug_conf['final_dim']
 
         if self.training:

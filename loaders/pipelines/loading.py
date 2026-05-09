@@ -2,6 +2,8 @@ import os
 import mmcv
 import glob
 import numpy as np
+import torch
+import torch.nn.functional as F
 from mmdet.datasets.builder import PIPELINES
 from numpy.linalg import inv
 from mmcv.runner import get_dist_info
@@ -10,6 +12,11 @@ from mmdet.datasets.pipelines import to_tensor
 from PIL import Image
 from torchvision import transforms
 from pyquaternion import Quaternion
+
+PGOCC_CAM_TYPES = [
+    'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_FRONT_LEFT',
+    'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_BACK_RIGHT'
+]
 
 class Voxelize():
     def __init__(self, max_volume_space, min_volume_space, grid_size, roi_mask=True):
@@ -437,6 +444,52 @@ class GenerateRenderImageFromMultiSweeps(object):
 
 
 @PIPELINES.register_module()
+class GenerateCurrentRenderImage(object):
+    def __init__(self, render_conf=None):
+        assert render_conf is not None
+        self.render_conf = render_conf
+        self.interp = transforms.InterpolationMode.LANCZOS
+        self.resize = transforms.Resize(
+            (self.render_conf.render_h, self.render_conf.render_w),
+            interpolation=self.interp)
+
+    def __call__(self, results):
+        if 'ori_k' in results:
+            results['ori_k'] = np.stack(results['ori_k'])
+
+        render_k = results['ori_k'].copy()
+        ori_h, ori_w = results['ori_shape'][0][:2]
+        render_k[..., 0, :] *= self.render_conf.render_w / ori_w
+        render_k[..., 1, :] *= self.render_conf.render_h / ori_h
+
+        render_k_4x4 = []
+        for i in range(len(PGOCC_CAM_TYPES)):
+            k_4x4 = np.eye(4)
+            k_4x4[:3, :3] = render_k[i]
+            render_k_4x4.append(k_4x4)
+        results['render_k'] = render_k_4x4
+
+        render_gt = []
+        for img_array in results['img']:
+            img = Image.fromarray(img_array.astype('uint8'))
+            render_gt.append(np.array(self.resize(img)))
+        results['render_gt'] = np.array(render_gt)
+
+        if 'depth' in results:
+            from scipy.ndimage import zoom
+            depth = results['depth']
+            h, w = depth.shape[-2:]
+            zoom_factors = (
+                1,
+                self.render_conf['render_h'] / h,
+                self.render_conf['render_w'] / w)
+            resized_depth = zoom(depth, zoom_factors, order=1)
+            results['depth'] = np.expand_dims(resized_depth, axis=1)
+
+        return results
+
+
+@PIPELINES.register_module()
 class LoadFeatureFromFiles(object):
     def __init__(self, key='depth', root_path=None):
         self.key = key
@@ -512,4 +565,106 @@ class LoadOVFromFiles(object):
         
         results.update({'ov_features': ov_features,
                         'ov_grid_ind': ov_grid_ind})
+        return results
+
+
+@PIPELINES.register_module()
+class LoadMultiViewImageFromChunks(object):
+    def __init__(self, to_float32=False, color_type='color'):
+        self.to_float32 = to_float32
+        self.color_type = color_type
+
+    def __call__(self, results):
+        sample = results['_chunk_sample']
+        chunk_images = sample['image_bytes']
+        imgs = []
+        filenames = []
+        for cam in PGOCC_CAM_TYPES:
+            if cam not in chunk_images:
+                raise KeyError(f'Chunk image payload missing camera {cam}.')
+            cam_idx = PGOCC_CAM_TYPES.index(cam)
+            image_item = chunk_images[cam]
+            img_bytes = image_item['bytes']
+            img = mmcv.imfrombytes(
+                img_bytes,
+                flag=self.color_type,
+                backend='pillow',
+                channel_order='bgr')
+            if self.to_float32:
+                img = img.astype(np.float32)
+            imgs.append(img)
+            filenames.append(results['img_filename'][cam_idx])
+
+            if image_item.get('materialized', False) and 'img_aug_mat' in image_item:
+                img_aug_mat = np.asarray(image_item['img_aug_mat'], dtype=np.float32)
+                results['lidar2img'][cam_idx] = img_aug_mat @ results['lidar2img'][cam_idx]
+                if 'ego2img' in results:
+                    results['ego2img'][cam_idx] = img_aug_mat @ results['ego2img'][cam_idx]
+                if 'ori_k' in results:
+                    k4 = np.eye(4, dtype=np.float32)
+                    k4[:3, :3] = results['ori_k'][cam_idx]
+                    results['ori_k'][cam_idx] = (img_aug_mat @ k4)[:3, :3]
+
+        results['filename'] = filenames
+        results['img'] = imgs
+        results['ori_shape'] = [img.shape for img in imgs]
+        results['img_shape'] = [img.shape for img in imgs]
+        results['pad_shape'] = [img.shape for img in imgs]
+        return results
+
+
+@PIPELINES.register_module()
+class LoadChunkFeature(object):
+    def __init__(self, key='depth', out_key=None):
+        self.key = key
+        self.out_key = out_key or key
+
+    @staticmethod
+    def _to_numpy(value):
+        if isinstance(value, torch.Tensor):
+            return value.cpu().numpy()
+        return np.asarray(value)
+
+    def __call__(self, results):
+        sample = results['_chunk_sample']
+        if self.key not in sample:
+            raise KeyError(f'Chunk sample missing field {self.key}.')
+        views = sample[self.key]
+        features = []
+        for cam in PGOCC_CAM_TYPES:
+            if cam not in views:
+                raise KeyError(f'Chunk field {self.key} missing camera {cam}.')
+            features.append(self._to_numpy(views[cam]['tensor']))
+        results[self.out_key] = np.stack(features)
+        return results
+
+
+@PIPELINES.register_module()
+class LoadChunkOccGT(object):
+    def __init__(self, num_classes=18, inst_class_ids=[]):
+        self.num_classes = num_classes
+        self.inst_class_ids = inst_class_ids
+
+    @staticmethod
+    def _to_numpy(value):
+        if isinstance(value, torch.Tensor):
+            return value.cpu().numpy()
+        return np.asarray(value)
+
+    def __call__(self, results):
+        sample = results['_chunk_sample']
+        occ_gt = sample.get('occ_gt')
+        if occ_gt is None:
+            return LoadOccGTFromFile(
+                num_classes=self.num_classes,
+                inst_class_ids=self.inst_class_ids)(results)
+
+        arrays = occ_gt['arrays']
+        semantics = self._to_numpy(arrays['semantics'])
+        mask_camera = self._to_numpy(arrays['mask_camera']).astype(np.bool_)
+
+        results['mask_camera'] = mask_camera
+        results['voxel_semantics'] = semantics
+        results['voxel_instances'] = np.ones_like(semantics) * 255
+        results['instance_class_ids'] = DC(to_tensor([]))
         return results

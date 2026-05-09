@@ -1,7 +1,7 @@
 from functools import partial
 from mmcv.parallel import collate
 from mmcv.runner import get_dist_info
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset
 from mmdet.datasets.builder import worker_init_fn
 from mmdet.datasets.samplers import DistributedGroupSampler, DistributedSampler, GroupSampler
 
@@ -16,7 +16,14 @@ def build_dataloader(dataset,
                      **kwargs):
 
     rank, world_size = get_dist_info()
-    if dist:
+    is_iterable = isinstance(dataset, IterableDataset) or getattr(
+        dataset, 'is_chunk_iterable', False)
+
+    if is_iterable:
+        sampler = None
+        batch_size = samples_per_gpu if dist else num_gpus * samples_per_gpu
+        num_workers = workers_per_gpu if dist else num_gpus * workers_per_gpu
+    elif dist:
         # DistributedGroupSampler will definitely shuffle the data to satisfy
         # that images on each GPU are in the same group
         if shuffle:

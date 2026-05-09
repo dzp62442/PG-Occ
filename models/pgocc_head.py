@@ -255,18 +255,21 @@ class PGOccHead(nn.Module):
             if gaussian.ovs is not None:
                 ov_feature = render_results['ov_feature'].unsqueeze(0)
 
-            # Compute temporal depth warping loss
-            t0_2_x_geo = kwargs['t0_2_x_geo']
-            render_gt = kwargs['render_gt']
-            loss_depth_warping = calc_time_warping_loss(
-                render_depths[0:6], 
-                t0_2_x_geo, 
-                render_gt, 
-                self.backproject_depth, 
-                self.project_3d, 
-                K
-            )
-            loss_dict_i['loss_depth_warping'] = loss_depth_warping * self.loss_weights['depth_warping']
+            # Compute temporal depth warping loss only when temporal fields exist.
+            if (self.loss_weights.get('depth_warping', 0) > 0
+                    and 't0_2_x_geo' in kwargs and 'render_gt' in kwargs):
+                t0_2_x_geo = kwargs['t0_2_x_geo']
+                render_gt = kwargs['render_gt']
+                loss_depth_warping = calc_time_warping_loss(
+                    render_depths[0:6], 
+                    t0_2_x_geo, 
+                    render_gt, 
+                    self.backproject_depth, 
+                    self.project_3d, 
+                    K
+                )
+                loss_dict_i['loss_depth_warping'] = (
+                    loss_depth_warping * self.loss_weights['depth_warping'])
 
             # Compute open-vocabulary feature losses
             if gaussian.ovs is not None:

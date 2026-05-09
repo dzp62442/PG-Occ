@@ -11,8 +11,9 @@ from mmcv import Config
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import load_checkpoint
 from mmdet.apis import set_random_seed, multi_gpu_test, single_gpu_test
-from mmdet3d.datasets import build_dataset, build_dataloader
+from mmdet3d.datasets import build_dataset
 from mmdet3d.models import build_model
+from loaders.builder import build_dataloader
 import numpy as np
 
 def evaluate(dataset, results):

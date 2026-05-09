@@ -172,7 +172,8 @@ def main():
     runner.register_checkpoint_hook(cfgs.checkpoint_config)         # ckpt config {'interval': 1, 'max_keep_ckpts': 1}
     runner.register_logger_hooks(cfgs.log_config)                   # log config
     runner.register_timer_hook(dict(type='IterTimerHook'))          # timer hook
-    runner.register_custom_hooks(dict(type='DistSamplerSeedHook'))  # fix seed for distributed sampler
+    if getattr(train_loader, 'sampler', None) is not None:
+        runner.register_custom_hooks(dict(type='DistSamplerSeedHook'))  # fix seed for distributed sampler
 
     if cfgs.eval_config['interval'] > 0:
         if world_size > 1:

@@ -1,7 +1,8 @@
-from .loading import LoadMultiViewImageFromMultiSweeps, LoadOccGTFromFile, LoadSAMFromFiles, LoadFeatureFromFiles, GenerateRenderImageFromMultiSweeps, LoadLidarFromFiles, LoadOVFromFiles
+from .loading import LoadMultiViewImageFromMultiSweeps, LoadOccGTFromFile, LoadSAMFromFiles, LoadFeatureFromFiles, GenerateRenderImageFromMultiSweeps, LoadLidarFromFiles, LoadOVFromFiles, LoadMultiViewImageFromChunks, LoadChunkFeature, LoadChunkOccGT, GenerateCurrentRenderImage
 from .transforms import PadMultiViewImage, NormalizeMultiviewImage, PhotoMetricDistortionMultiViewImage
 
 __all__ = [
     'LoadMultiViewImageFromMultiSweeps', 'PadMultiViewImage', 'NormalizeMultiviewImage', 
-    'PhotoMetricDistortionMultiViewImage', 'LoadOccGTFromFile', 'GenerateRenderImageFromMultiSweeps', 'LoadLidarFromFiles', 'LoadOVFromFiles'
+    'PhotoMetricDistortionMultiViewImage', 'LoadOccGTFromFile', 'GenerateRenderImageFromMultiSweeps', 'LoadLidarFromFiles', 'LoadOVFromFiles',
+    'LoadMultiViewImageFromChunks', 'LoadChunkFeature', 'LoadChunkOccGT', 'GenerateCurrentRenderImage'
 ]
