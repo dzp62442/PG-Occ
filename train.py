@@ -15,6 +15,7 @@ from mmdet.core import DistEvalHook, EvalHook
 from mmdet3d.datasets import build_dataset
 from mmdet3d.models import build_model
 from loaders.builder import build_dataloader
+from loaders.evaluation import ChunkDistEvalHook, is_chunk_dataset
 
 def main():
 
@@ -177,7 +178,10 @@ def main():
 
     if cfgs.eval_config['interval'] > 0:
         if world_size > 1:
-            runner.register_hook(DistEvalHook(val_loader, interval=cfgs.eval_config['interval'], gpu_collect=True))
+            eval_hook = ChunkDistEvalHook if is_chunk_dataset(val_dataset) else DistEvalHook
+            runner.register_hook(eval_hook(
+                val_loader, interval=cfgs.eval_config['interval'],
+                gpu_collect=True))
         else:
             runner.register_hook(EvalHook(val_loader, interval=cfgs.eval_config['interval']))
 

@@ -14,6 +14,7 @@ from mmdet.apis import set_random_seed, multi_gpu_test, single_gpu_test
 from mmdet3d.datasets import build_dataset
 from mmdet3d.models import build_model
 from loaders.builder import build_dataloader
+from loaders.evaluation import chunk_multi_gpu_test, is_chunk_dataset
 import numpy as np
 
 def evaluate(dataset, results):
@@ -39,9 +40,17 @@ def main():
     parser.add_argument('--world-size', type=int, default=1)
     parser.add_argument('--batch-size', type=int, default=1)
     args = parser.parse_args()
+    if args.batch_size != 1:
+        raise ValueError(
+            'PGOcc evaluation currently requires --batch-size 1 because '
+            'forward_test returns one result per call.')
 
     # parse configs
     cfgs = Config.fromfile(args.config)
+    if args.mini and cfgs.data.val.get('type') == 'NuSceneOVOccChunk':
+        raise ValueError(
+            '--mini is not supported for chunks evaluation because the chunk '
+            'index still points to the full val split.')
     
     if args.mini:
         cfgs.data.val.ann_file = cfgs.data.val.ann_file.replace('val', 'val_mini')
@@ -116,7 +125,10 @@ def main():
     
     model.eval()
     if world_size > 1:
-        results = multi_gpu_test(model, val_loader, gpu_collect=True)
+        if is_chunk_dataset(val_dataset):
+            results = chunk_multi_gpu_test(model, val_loader, gpu_collect=True)
+        else:
+            results = multi_gpu_test(model, val_loader, gpu_collect=True)
     else:
         results = single_gpu_test(model, val_loader)
 

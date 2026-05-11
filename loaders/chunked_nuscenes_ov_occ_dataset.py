@@ -353,6 +353,22 @@ class NuSceneOVOccChunk(IterableDataset):
 
         return input_dict
 
+    @staticmethod
+    def _prediction_to_numpy(prediction, expected_shape, token):
+        if isinstance(prediction, torch.Tensor):
+            pred = prediction.detach().cpu().numpy()
+        else:
+            pred = np.asarray(prediction)
+
+        while pred.ndim > len(expected_shape) and pred.shape[0] == 1:
+            pred = pred[0]
+
+        if pred.shape != expected_shape:
+            raise ValueError(
+                f'Chunk prediction shape mismatch for token {token}: '
+                f'pred_shape={pred.shape}, expected_shape={expected_shape}')
+        return pred
+
     def evaluate(self, occ_results, runner=None, show_dir=None, **eval_kwargs):
         print('\nStarting Chunk Evaluation...')
         results = {}
@@ -405,11 +421,8 @@ class NuSceneOVOccChunk(IterableDataset):
             gt_semantics = occ_gt['semantics']
             gt_mask_camera = occ_gt['mask_camera'].astype(bool)
             occ_pred = pred_by_token[token]
-            sem_pred = occ_pred['occ_preds'][0]
-            try:
-                sem_pred = sem_pred.squeeze(0).cpu().numpy()
-            except AttributeError:
-                sem_pred = np.asarray(sem_pred).squeeze()
+            sem_pred = self._prediction_to_numpy(
+                occ_pred['occ_preds'], gt_semantics.shape, token)
 
             lidar_origins.append(output_origin)
             occ_gts.append(gt_semantics)
